@@ -1,0 +1,61 @@
+version: "3.5"
+services:
+  gitlab:
+    image: 'gitlab/gitlab-ce:latest'
+    restart: always
+    container_name: gitlab
+    hostname: 'gitlab.example.com'
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://gitlab.example.com:8929'
+        gitlab_rails['gitlab_shell_ssh_port'] = 2224
+        gitlab_rails['omniauth_enabled'] = true
+        gitlab_rails['omniauth_allow_single_sign_on'] = ['saml']
+        gitlab_rails['omniauth_sync_email_from_provider'] = 'saml'
+        gitlab_rails['omniauth_sync_profile_from_provider'] = ['saml']
+        gitlab_rails['omniauth_sync_profile_attributes'] = ['email']
+        gitlab_rails['omniauth_auto_sign_in_with_provider'] = 'saml'
+        gitlab_rails['omniauth_block_auto_created_users'] = false
+        gitlab_rails['omniauth_auto_link_ldap_user'] = false
+        gitlab_rails['omniauth_auto_link_saml_user'] = true
+        gitlab_rails['omniauth_providers'] = [
+          {
+            "name" => "saml",
+            "label" => "SAML",
+            "args" => {
+              assertion_consumer_service_url: 'http://gitlab.example.com:8929/users/auth/saml/callback',
+              idp_cert_fingerprint: '119b9e027959cdb7c662cfd075d9e2ef384e445f',
+              idp_sso_target_url: 'http://idp.example.com:8089/simplesaml/saml2/idp/SSOService.php',
+              issuer: 'http://gitlab.example.com:8929',
+              name_identifier_format: 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent'
+            }
+          }
+        ]
+    ports:
+      - '8929:8929'
+      - '2224:22'
+    volumes:
+      - '/srv/gitlab/config:/etc/gitlab'
+      - '/srv/gitlab/logs:/var/log/gitlab'
+      - '/srv/gitlab/data:/var/opt/gitlab'
+    networks:
+     - example.com
+
+  idp:
+    image: jamedjo/test-saml-idp
+    container_name: idp 
+    hostname: 'idp.example.com'
+    ports:
+      - "8089:8080"
+      - "8443:8443"
+    environment:
+     - SIMPLESAMLPHP_SP_ENTITY_ID=http://gitlab.example.com:8929
+     - SIMPLESAMLPHP_SP_ASSERTION_CONSUMER_SERVICE=http://gitlab.example.com:8929/users/auth/saml/callback
+    networks:
+     - example.com
+
+networks:
+    example.com:
+       driver: bridge
+       name: example.com
+
